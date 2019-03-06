@@ -285,7 +285,7 @@ class Worker(threading.Thread):
             )
             logging.debug("default packages: %s", default_packages)
 
-            profiles_pattern = r"(.+):\n    (.+)\n    Packages: (.*)\n"
+            profiles_pattern = r"(.+):\n    (.+)\n    Packages: (.*)\n(?:    hasImageMetadata: )?(\d)?"
             profiles = re.findall(profiles_pattern, output)
             if not profiles:
                 profiles = []
@@ -301,21 +301,6 @@ class Worker(threading.Thread):
             print(output)
             print(errors)
             return False
-        # check if device supports sysupgrades
-        if os.path.exists(
-            os.path.join(
-                self.location,
-                "imagebuilder",
-                self.params["distro"],
-                self.params["version"],
-                self.params["target"],
-                "target/linux",
-                self.params["target"].split("/")[0],
-                "base-files/lib/upgrade/platform.sh",
-            )
-        ):
-            self.log.info("%s target is supported", self.params["target"])
-            self.database.insert_supported(self.params)
 
     def run_meta(self, cmd):
         cmdline = ["sh", "meta", cmd]

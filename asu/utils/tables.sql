@@ -105,7 +105,6 @@ create table if not exists targets_table(
     target_id serial primary key,
     version_id integer references versions_table(version_id),
     target varchar(50),
-    supported boolean DEFAULT false,
     last_sync timestamp default date('1970-01-01'),
     revision varchar(42),
     unique(version_id, target)
@@ -127,7 +126,6 @@ ON insert TO targets DO INSTEAD (
 create or replace rule update_targets AS
 ON update TO targets DO INSTEAD (
     update targets_table set
-    supported = coalesce(NEW.supported, supported),
     last_sync = coalesce(NEW.last_sync, last_sync),
     revision = coalesce(NEW.revision, revision)
     where targets_table.target_id =
@@ -150,7 +148,14 @@ create table if not exists profiles_table(
     target_id integer references targets_table(target_id) ON DELETE CASCADE,
     profile varchar(50),
     model varchar(100),
+    metadata boolean DEFAULT 0,
     unique(target_id, profile, model)
+);
+
+create table if not exists supported_devices(
+    profile_id integer references profiles_table(profile_id) ON DELETE CASCADE,
+    supported_device varchar(100),
+    unique(profile_id, supported_device)
 );
 
 create or replace view profiles as
@@ -167,6 +172,7 @@ ON insert TO profiles DO INSTEAD (
         NEW.model
     )  on conflict do nothing;
 );
+
 
 create or replace rule delete_profiles as
 on delete to profiles do instead (
@@ -237,7 +243,7 @@ select
 	target,
     package_name
 from
-	targets 
+	targets
     join packages_default_table using (target_id)
     join packages_names using (package_name_id);
 
@@ -764,7 +770,7 @@ create or replace function manifest_upgrades (
 ' LANGUAGE 'sql';
 
 create or replace function insert_packages_profile(
-    distro varchar, version varchar, target varchar, profile varchar, model varchar, packages text)
+    distro varchar, version varchar, target varchar, profile varchar, model varchar, packages text, metadata boolean)
     returns void as '
     insert into profiles (distro, version, target, profile, model) values (
         insert_packages_profile.distro,
@@ -772,6 +778,7 @@ create or replace function insert_packages_profile(
         insert_packages_profile.target,
         insert_packages_profile.profile,
         insert_packages_profile.model);
+        insert_packages_profile.metadata);
     insert into packages_profile(distro, version, target, profile, package_name) select
         insert_packages_profile.distro,
         insert_packages_profile.version,
