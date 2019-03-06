@@ -54,11 +54,6 @@ class Database:
         self.c.execute(sql, defaults_hash)
         return self.c.fetchval()
 
-    def insert_supported(self, p):
-        sql = """UPDATE targets SET supported = true
-            WHERE distro=? and version=? and target=?"""
-        self.c.execute(sql, p["distro"], p["version"], p["target"])
-
     def get_versions(self, distro=None):
         if not distro:
             return self.c.execute("select distro, version from versions").fetchall()
