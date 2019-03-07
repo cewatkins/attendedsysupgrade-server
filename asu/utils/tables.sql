@@ -148,7 +148,7 @@ create table if not exists profiles_table(
     target_id integer references targets_table(target_id) ON DELETE CASCADE,
     profile varchar(50),
     model varchar(100),
-    metadata boolean DEFAULT 0,
+    metadata boolean DEFAULT false,
     unique(target_id, profile, model)
 );
 
@@ -772,12 +772,12 @@ create or replace function manifest_upgrades (
 create or replace function insert_packages_profile(
     distro varchar, version varchar, target varchar, profile varchar, model varchar, packages text, metadata boolean)
     returns void as '
-    insert into profiles (distro, version, target, profile, model) values (
+    insert into profiles (distro, version, target, profile, model, supported) values (
         insert_packages_profile.distro,
         insert_packages_profile.version,
         insert_packages_profile.target,
         insert_packages_profile.profile,
-        insert_packages_profile.model);
+        insert_packages_profile.model,
         insert_packages_profile.metadata);
     insert into packages_profile(distro, version, target, profile, package_name) select
         insert_packages_profile.distro,
