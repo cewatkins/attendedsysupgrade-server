@@ -10,55 +10,48 @@ class UpgradeCheck(Request):
     def __init__(self, config, db):
         super().__init__(config, db)
         self.log = logging.getLogger(__name__)
+        self.required_params = ["distro", "version", "target", "board_name"]
 
     def _process_request(self):
-        if "distro" not in self.request_json:
-            self.response_status = HTTPStatus.PRECONDITION_FAILED  # 412
-            self.response_header["X-Missing-Param"] = "distro"
-            return self.respond()
-        else:
-            bad_request = self.check_bad_distro()
-            if bad_request:
-                return bad_request
-            self.log.debug("passed distro check")
+        bad_request = self.check_bad_distro()
+        if bad_request:
+            return bad_request
+        self.log.debug("passed distro check")
 
-        if "target" not in self.request_json:
-            self.response_status = HTTPStatus.PRECONDITION_FAILED  # 412
-            self.response_header["X-Missing-Param"] = "target"
-            return self.respond()
-
-        if "version" not in self.request_json:
-            self.response_json["version"] = self.config.get(self.request["distro"]).get(
-                "latest"
-            )
-            return self.respond()
-        else:
-            bad_request = self.check_bad_version()
-            if bad_request:
-                return bad_request
-            self.log.debug("passed version check")
-            if self.config.version(self.request["distro"], self.request["version"]).get(
-                "snapshots", False
-            ):
-                revision = self.database.get_revision(
-                    self.request["distro"],
-                    self.request["version"],
-                    self.request_json["target"],
-                )
-                if self.request_json.get("revision") != revision:
-                    self.response_json["revision"] = revision
-                    self.response_json["version"] = self.request["version"]
-            else:
-                latest_version = self.config.get(self.request["distro"]).get("latest")
-                if latest_version != self.request["version"]:
-                    self.response_json["version"] = latest_version
-                else:
-                    self.response_status = HTTPStatus.NO_CONTENT  # 204
-
-        # check if target/sutarget still exists in new version
         bad_request = self.check_bad_target()
         if bad_request:
             return bad_request
+        self.log.debug("passed target check")
+
+        bad_request = self.check_bad_version()
+        if bad_request:
+            return bad_request
+        self.log.debug("passed version check")
+
+        profile, metadata = self.database.check_board_name(self.request)
+        if not (profile and metadata):
+            self.response_json["error"] = "device does not support sysupgrades"
+            self.response_status = HTTPStatus.PRECONDITION_FAILED  # 412
+            return self.respond()
+        self.log.debug("passed board_name check")
+
+        if self.config.version(self.request["distro"], self.request["version"]).get(
+            "snapshots", False
+        ):
+            revision = self.database.get_revision(
+                self.request["distro"],
+                self.request["version"],
+                self.request_json["target"],
+            )
+            if self.request_json.get("revision") != revision:
+                self.response_json["revision"] = revision
+                self.response_json["version"] = self.request["version"]
+        else:
+            latest_version = self.config.get(self.request["distro"]).get("latest")
+            if latest_version != self.request["version"]:
+                self.response_json["version"] = latest_version
+            else:
+                self.response_status = HTTPStatus.NO_CONTENT  # 204
 
         if "installed" not in self.request_json:
             return self.respond()

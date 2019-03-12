@@ -116,7 +116,7 @@ class Database:
         self.c.execute(sql, distro, version, target)
 
         self.cnxn.autocommit = False
-        # distro, version, target, profile, model, packages, supported
+        # distro, version, target, profile, model, packages, metadata
         sql = """select insert_packages_profile (?, ?, ?, ?, ?, ?, ?);"""
         self.c.executemany(
             sql,
@@ -129,7 +129,7 @@ class Database:
                         profile[0],
                         profile[1],
                         profile[2],
-                        profile[4] or 0
+                        profile[4] or 0,
                     ),
                     profiles,
                 )
@@ -137,6 +137,11 @@ class Database:
         )
         self.commit()
         self.cnxn.autocommit = True
+
+    def check_board_name(self, board_name):
+        sql = """select profile, metadata from supported_devices
+            where supported_device = ?"""
+        return self.c.execute(sql, board_name).fetchone() or (None, False)
 
     def check_packages(self, image):
         sql = """select value as packages_unknown
@@ -157,16 +162,6 @@ class Database:
             image["target"],
         )
         return self.as_array()
-
-    def sysupgrade_supported(self, image):
-        self.c.execute(
-            """SELECT supported from targets
-                WHERE distro=? and version=? and target=? LIMIT 1;""",
-            image["distro"],
-            image["version"],
-            image["target"],
-        )
-        return self.c.fetchval()
 
     def check_profile(self, distro, version, target, profile):
         self.log.debug("check_profile %s/%s/%s/%s", distro, version, target, profile)
@@ -286,18 +281,6 @@ class Database:
             response[name] = version
         return response
 
-    def get_targets(self, distro, version, target="%"):
-        self.log.debug("get_targets {} {} {}".format(distro, version, target))
-        return self.c.execute(
-            """SELECT target, supported FROM targets
-            WHERE distro = ? and version = ? and target LIKE ?;""",
-            distro,
-            version,
-            target,
-        ).fetchall()
-
-    # check for image_hash or request_hash depending on length
-    # TODO make it less confusing
     def check_request_hash(self, request_hash):
         self.log.debug("check_build_request_hash request_hash")
         sql = "select * from requests where request_hash = ?"

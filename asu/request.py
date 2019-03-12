@@ -9,6 +9,7 @@ class Request:
         self.config = config
         self.database = database
         self.log = logging.getLogger(__name__)
+        self.required_params = []
 
     def process_request(self, request_json, sysupgrade_requested=False):
         self.request = {}
@@ -17,6 +18,10 @@ class Request:
         self.response_header = {}
         self.response_status = 0
         self.sysupgrade_requested = sysupgrade_requested
+        if self.required_params:
+            required_params = self.check_required_params()
+            if required_params:
+                return required_params
         return self._process_request()
 
     def _process_request(self):
@@ -102,3 +107,10 @@ class Request:
 
         # all checks passed, not bad
         return False
+
+    def check_required_params(self):
+        for required_param in self.required_params:
+            if required_param not in self.request_json:
+                self.response_status = HTTPStatus.PRECONDITION_FAILED  # 412
+                self.response_header["X-Missing-Param"] = required_param
+                return self.respond()

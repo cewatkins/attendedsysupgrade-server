@@ -285,7 +285,9 @@ class Worker(threading.Thread):
             )
             logging.debug("default packages: %s", default_packages)
 
-            profiles_pattern = r"(.+):\n    (.+)\n    Packages: (.*)\n(?:    hasImageMetadata: )?(\d)?"
+            profiles_pattern = (
+                r"(.+):\n    (.+)\n    Packages: (.*)\n(?:    hasImageMetadata: )?(\d)?"
+            )
             profiles = re.findall(profiles_pattern, output)
             if not profiles:
                 profiles = []

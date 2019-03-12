@@ -152,7 +152,7 @@ create table if not exists profiles_table(
     unique(target_id, profile, model)
 );
 
-create table if not exists supported_devices(
+create table if not exists supported_devices_table(
     profile_id integer references profiles_table(profile_id) ON DELETE CASCADE,
     supported_device varchar(100),
     unique(profile_id, supported_device)
@@ -179,6 +179,10 @@ on delete to profiles do instead (
     delete from profiles_table
     where old.profile_id = profiles_table.profile_id;
 );
+
+create or replace view supported_devices as
+    select supported_device, profile, metadata
+        from supported_devices_table join profiles using (profile_id);
 
 create table if not exists packages_names(
     package_name_id serial primary key,
